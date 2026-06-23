@@ -1,0 +1,13 @@
+version: 2
+ethernets:
+  primary:
+    match:
+      name: "e*"
+    dhcp4: false
+    addresses:
+      - ${host_ip}/${cidr_prefix}
+    routes:
+      - to: default
+        via: ${gateway}
+    nameservers:
+      addresses: [${dns_csv}]

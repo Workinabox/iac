@@ -1,0 +1,74 @@
+# Copy to terraform.tfvars and fill in. Do NOT commit terraform.tfvars.
+
+# --- Xen Orchestra ---
+xoa_url      = "wss://xoa.lan"
+xoa_token    = "your-xo-api-token"
+xoa_insecure = "false" # "true" if XOA uses a self-signed cert
+
+# --- Pool inventory (must match names in your XO) ---
+template_name      = "Ubuntu Server 24.04 (cloud-init)"
+network_name       = "Pool-wide network associated with eth0"
+storage_repository = "Local storage"
+
+# --- VM sizing (defaults: 4 vCPU / 8 GB / 40 GB) ---
+hostname  = "workinabox"
+vcpus     = 4
+memory_gb = 8
+disk_gb   = 40
+
+# --- Networking (static LAN IP, outside DHCP pool) ---
+host_ip            = "192.168.1.50"
+cidr_prefix        = 24
+gateway            = "192.168.1.1"
+dns_servers        = ["1.1.1.1", "9.9.9.9"]
+ssh_authorized_key = "ssh-ed25519 AAAA... you@host"
+
+# --- Application ---
+domain            = "workinabox.gos.dk"
+letsencrypt_email = "frederic.gos@gmail.com"
+# Public WAN IP if WebRTC clients are on the internet (served via NAT),
+# otherwise the LAN host_ip for LAN-only use.
+announced_address = "203.0.113.10"
+
+# --- App versions (in-place updates) ---
+# Pin a tag (e.g. "v0.2.0") and `terraform apply` to deploy it without rebuilding
+# the VM. "latest" is fine for the first build; to drive updates, pin explicit
+# tags so the change is detected (or use `apply -replace=null_resource.deploy_app`).
+backend_version  = "latest"
+frontend_version = "latest"
+
+# Private key matching ssh_authorized_key, used for the in-place deploy over SSH.
+ssh_private_key_path = "~/.ssh/id_rsa"
+
+# --- Persistence (local PostgreSQL on the VM) ---
+# Postgres is installed/configured by cloud-init (provision.sh) on a fresh VM; on an
+# already-running VM it's (re)applied over SSH (null_resource.provision_db) — bump
+# db_provision_version to re-run without a rebuild. db_password is the local 'wiab'
+# role password (localhost-only).
+db_provision_version = "v1"
+db_password          = "wiab"
+
+# --- Local models (Llama LLM, Whisper STT) ---
+# Files live in Azure blob storage and are fetched via azcopy by wiab-deploy into
+# ${wiab_data_dir}/models — on first boot and on every in-place deploy. wiab_models_url is
+# the container URL WITH a SAS token. Edit the `models` map (add/remove an entry, change a
+# filename, flip enabled) and `terraform apply` re-fetches. Filenames are immutable: new
+# weights ⇒ new filename. Leave `models = {}` (and url empty) to skip models entirely.
+wiab_data_dir   = "/var/lib/wiab"
+wiab_models_url = "https://gosandcostore.blob.core.windows.net/workinabox?sv=...&sig=..."
+models = {
+  LLAMA   = { enabled = true, file = "gemma-3-1b-it-Q4_K_M.gguf" }
+  WHISPER = { enabled = true, file = "ggml-base.en.bin" }
+}
+
+# --- Identity / auth / email (written to wiab.env over SSH; in-place updatable) ---
+# Google/OIDC enable automatically once their credentials are non-empty. Register the
+# redirect URI https://<domain>/api/auth/oidc/<google|enterprise>/callback with the IdP.
+auth_local_signup = true
+email_from        = "no-reply@example.com" # must be a domain verified in Resend
+resend_api_key    = ""                     # Resend API key; empty = log link only, no send
+google_client_id     = ""
+google_client_secret = ""
+oidc_issuer          = "" # e.g. https://login.microsoftonline.com/<tenant>/v2.0
+oidc_client_id       = ""
+oidc_client_secret   = ""
